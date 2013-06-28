@@ -108,7 +108,7 @@ static int rmmod(const char *modname)
     }
 
     if (ret != 0)
-        LOGD("Unable to unload driver module \"%s\": %s\n",
+        ALOGD("Unable to unload driver module \"%s\": %s\n",
              modname, strerror(errno));
     return ret;
 }
@@ -151,7 +151,7 @@ static int check_driver_loaded() {
      * crash.
      */
     if ((proc = fopen(MODULE_FILE, "r")) == NULL) {
-        LOGW("Could not open %s: %s", MODULE_FILE, strerror(errno));
+        ALOGW("Could not open %s: %s", MODULE_FILE, strerror(errno));
         property_set(DRIVER_PROP_NAME, "unloaded");
         return 0;
     }
@@ -229,26 +229,26 @@ int ensure_config_file_exists()
     if (access(SUPP_CONFIG_FILE, R_OK|W_OK) == 0) {
         return 0;
     } else if (errno != ENOENT) {
-        LOGE("Cannot access \"%s\": %s", SUPP_CONFIG_FILE, strerror(errno));
+        ALOGE("Cannot access \"%s\": %s", SUPP_CONFIG_FILE, strerror(errno));
         return -1;
     }
 
     srcfd = open(SUPP_CONFIG_TEMPLATE, O_RDONLY);
     if (srcfd < 0) {
-        LOGE("Cannot open \"%s\": %s", SUPP_CONFIG_TEMPLATE, strerror(errno));
+        ALOGE("Cannot open \"%s\": %s", SUPP_CONFIG_TEMPLATE, strerror(errno));
         return -1;
     }
 
     destfd = open(SUPP_CONFIG_FILE, O_CREAT|O_WRONLY, 0660);
     if (destfd < 0) {
         close(srcfd);
-        LOGE("Cannot create \"%s\": %s", SUPP_CONFIG_FILE, strerror(errno));
+        ALOGE("Cannot create \"%s\": %s", SUPP_CONFIG_FILE, strerror(errno));
         return -1;
     }
 
     while ((nread = read(srcfd, buf, sizeof(buf))) != 0) {
         if (nread < 0) {
-            LOGE("Error reading \"%s\": %s", SUPP_CONFIG_TEMPLATE, strerror(errno));
+            ALOGE("Error reading \"%s\": %s", SUPP_CONFIG_TEMPLATE, strerror(errno));
             close(srcfd);
             close(destfd);
             unlink(SUPP_CONFIG_FILE);
@@ -261,7 +261,7 @@ int ensure_config_file_exists()
     close(srcfd);
 
     if (chown(SUPP_CONFIG_FILE, AID_SYSTEM, AID_WIFI) < 0) {
-        LOGE("Error changing group ownership of %s to %d: %s",
+        ALOGE("Error changing group ownership of %s to %d: %s",
              SUPP_CONFIG_FILE, AID_WIFI, strerror(errno));
         unlink(SUPP_CONFIG_FILE);
         return -1;
@@ -286,7 +286,7 @@ int wifi_start_supplicant()
 
     /* Before starting the daemon, make sure its config file exists */
     if (ensure_config_file_exists() < 0) {
-        LOGE("Wi-Fi will not be enabled");
+        ALOGE("Wi-Fi will not be enabled");
         return -1;
     }
 
@@ -366,7 +366,7 @@ int wifi_connect_to_supplicant()
     /* Make sure supplicant is running */
     if (!property_get(SUPP_PROP_NAME, supp_status, NULL)
             || strcmp(supp_status, "running") != 0) {
-        LOGE("Supplicant not running, cannot connect");
+        ALOGE("Supplicant not running, cannot connect");
         return -1;
     }
 
@@ -380,7 +380,7 @@ int wifi_connect_to_supplicant()
 
     ctrl_conn = wpa_ctrl_open(ifname);
     if (ctrl_conn == NULL) {
-        LOGE("Unable to open connection to supplicant on \"%s\": %s",
+        ALOGE("Unable to open connection to supplicant on \"%s\": %s",
              ifname, strerror(errno));
         return -1;
     }
@@ -404,12 +404,12 @@ int wifi_send_command(struct wpa_ctrl *ctrl, const char *cmd, char *reply, size_
     int ret;
 
     if (ctrl_conn == NULL) {
-        LOGV("Not connected to wpa_supplicant - \"%s\" command dropped.\n", cmd);
+        ALOGV("Not connected to wpa_supplicant - \"%s\" command dropped.\n", cmd);
         return -1;
     }
     ret = wpa_ctrl_request(ctrl, cmd, strlen(cmd), reply, reply_len, NULL);
     if (ret == -2) {
-        LOGD("'%s' command timed out.\n", cmd);
+        ALOGD("'%s' command timed out.\n", cmd);
         return -2;
     } else if (ret < 0 || strncmp(reply, "FAIL", 4) == 0) {
         return -1;
@@ -430,7 +430,7 @@ int wifi_wait_for_event(char *buf, size_t buflen)
     struct timeval *tptr;
     
     if (monitor_conn == NULL) {
-        LOGD("Connection closed\n");
+        ALOGD("Connection closed\n");
         strncpy(buf, WPA_EVENT_TERMINATING " - connection closed", buflen-1);
         buf[buflen-1] = '\0';
         return strlen(buf);
@@ -438,17 +438,17 @@ int wifi_wait_for_event(char *buf, size_t buflen)
 
     result = wpa_ctrl_recv(monitor_conn, buf, &nread);
     if (result < 0) {
-        LOGD("wpa_ctrl_recv failed: %s\n", strerror(errno));
+        ALOGD("wpa_ctrl_recv failed: %s\n", strerror(errno));
         strncpy(buf, WPA_EVENT_TERMINATING " - recv error", buflen-1);
         buf[buflen-1] = '\0';
         return strlen(buf);
     }
     buf[nread] = '\0';
-    /* LOGD("wait_for_event: result=%d nread=%d string=\"%s\"\n", result, nread, buf); */
+    /* ALOGD("wait_for_event: result=%d nread=%d string=\"%s\"\n", result, nread, buf); */
     /* Check for EOF on the socket */
     if (result == 0 && nread == 0) {
         /* Fabricate an event to pass up */
-        LOGD("Received EOF on supplicant socket\n");
+        ALOGD("Received EOF on supplicant socket\n");
         strncpy(buf, WPA_EVENT_TERMINATING " - signal 0 received", buflen-1);
         buf[buflen-1] = '\0';
         return strlen(buf);
